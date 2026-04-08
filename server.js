@@ -1,65 +1,95 @@
-const WebSocket = require('ws');
-const http = require('http');
-const server = http.createServer((req, res) => {
-    res.writeHead(200);
-    res.end('On My Mark relay server running!');
+/**
+ * Minimal party relay for the Fabric client.
+ *
+ * - First message from each socket must be: {"type":"join","partyCode":"...","playerName":"..."}
+ * - Then clients may send:
+ *   - {"type":"position","x":...,"y":...,"z":...,"dim":"O"|"N"|"E"}
+ *   - {"type":"chat","playerName":"...","text":"..."}
+ *
+ * The server adds playerName to position broadcasts (the mod expects it).
+ * Chat messages are forwarded to everyone else in the same partyCode.
+ */
+const http = require("http");
+const WebSocket = require("ws");
+
+/** @type {Map<import('ws'), { partyCode: string, playerName: string }>} */
+const clients = new Map();
+
+const server = http.createServer((_req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("omm-relay ok\n");
 });
+
 const wss = new WebSocket.Server({ server });
-const parties = new Map();
-const clientInfo = new Map();
-wss.on('connection', (ws) => {
-    console.log('New connection');
-    ws.on('message', (data) => {
-        try {
-            const msg = JSON.parse(data.toString());
-            if (msg.type === 'join') {
-                const { partyCode, playerName } = msg;
-                clientInfo.set(ws, { partyCode, playerName });
-                if (!parties.has(partyCode)) {
-                    parties.set(partyCode, new Set());
-                }
-                parties.get(partyCode).add(ws);
-                console.log(`${playerName} joined party ${partyCode}`);
-            } else if (msg.type === 'position') {
-                const info = clientInfo.get(ws);
-                if (!info) return;
-                const { partyCode, playerName } = info;
-                const party = parties.get(partyCode);
-                if (!party) return;
-                const payload = JSON.stringify({
-                    type: 'position',
-                    playerName,
-                    x: msg.x,
-                    y: msg.y,
-                    z: msg.z,
-                    dim: msg.dim || 'O'
-                });
-                for (const member of party) {
-                    if (member !== ws && member.readyState === WebSocket.OPEN) {
-                        member.send(payload);
-                    }
-                }
-            }
-        } catch (e) {
-            console.error('Error handling message:', e);
-        }
-    });
-    ws.on('close', () => {
-        const info = clientInfo.get(ws);
-        if (info) {
-            const party = parties.get(info.partyCode);
-            if (party) {
-                party.delete(ws);
-                if (party.size === 0) {
-                    parties.delete(info.partyCode);
-                }
-            }
-            clientInfo.delete(ws);
-            console.log(`${info.playerName} disconnected`);
-        }
-    });
+
+wss.on("connection", (ws) => {
+  ws.on("message", (raw) => {
+    let data;
+    try {
+      data = JSON.parse(raw.toString());
+    } catch {
+      return;
+    }
+    const type = data && data.type;
+
+    if (type === "join") {
+      const partyCode = String(data.partyCode ?? "").trim();
+      const playerName = String(data.playerName ?? "").trim();
+      if (!partyCode || !playerName) return;
+      clients.set(ws, { partyCode, playerName });
+      return;
+    }
+
+    const info = clients.get(ws);
+    if (!info) return;
+
+    if (type === "position") {
+      const out = JSON.stringify({
+        type: "position",
+        playerName: info.playerName,
+        x: data.x,
+        y: data.y,
+        z: data.z,
+        dim: data.dim != null ? String(data.dim) : "O",
+      });
+      broadcastToParty(info.partyCode, ws, out);
+      return;
+    }
+
+    if (type === "chat") {
+      const out = JSON.stringify({
+        type: "chat",
+        playerName: String(data.playerName ?? info.playerName),
+        text: String(data.text ?? ""),
+      });
+      broadcastToParty(info.partyCode, ws, out);
+      return;
+    }
+  });
+
+  ws.on("close", () => {
+    clients.delete(ws);
+  });
+
+  ws.on("error", () => {
+    clients.delete(ws);
+  });
 });
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Relay server listening on port ${PORT}`);
+
+/**
+ * Send to every other connected client in the same party (not the sender).
+ */
+function broadcastToParty(partyCode, senderWs, message) {
+  for (const [otherWs, info] of clients) {
+    if (otherWs === senderWs) continue;
+    if (info.partyCode !== partyCode) continue;
+    if (otherWs.readyState === WebSocket.OPEN) {
+      otherWs.send(message);
+    }
+  }
+}
+
+const port = Number(process.env.PORT) || 8080;
+server.listen(port, () => {
+  console.log(`omm-relay listening on ${port}`);
 });
