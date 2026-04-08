@@ -1,11 +1,16 @@
 {
   "name": "omm-relay",
   "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket relay for Zydel / On My Mark party positions + chat",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.18.0"
   }
 }
