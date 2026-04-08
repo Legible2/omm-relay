@@ -1,0 +1,37 @@
+# omm-relay
+
+Small WebSocket server for **party positions** + **party chat** used by the Fabric client.
+
+## Run locally
+
+```bash
+cd relay
+npm install
+npm start
+```
+
+## Deploy on Render (basics)
+
+1. Push this folder to a GitHub repo (this `relay` folder can be the repo root, or copy these files into your existing relay repo).
+2. In Render: **New → Web Service**, connect the repo.
+3. Settings:
+   - **Build command:** `npm install`
+   - **Start command:** `npm start`
+   - **Environment:** Node (any recent LTS)
+4. Render sets `PORT` automatically; `server.js` uses it.
+
+## WebSocket URL
+
+Use **Secure WebSocket** in production, e.g. `wss://your-service.onrender.com` (Render gives you HTTPS; WS upgrades work on the same host).
+
+Point your mod’s relay URL at that `wss://` address.
+
+## Protocol (same as the mod)
+
+1. Client connects WebSocket.
+2. First text message: `{"type":"join","partyCode":"STD","playerName":"Steve"}`
+3. Then repeatedly:
+   - Position: `{"type":"position","x":1,"y":2,"z":3,"dim":"O"}`
+   - Chat: `{"type":"chat","playerName":"Steve","text":"hello"}`
+
+The server injects `playerName` into **position** messages to other party members. **Chat** messages are forwarded as JSON to other members in the same `partyCode`.
