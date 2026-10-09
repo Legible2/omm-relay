@@ -68,7 +68,9 @@ const MAX_AUDIO_BUFFERED_BYTES = MAX_BUFFERED_BYTES + MAX_FRAME_BYTES;
 // Per-sharer frame budget: 15 fps sustained, short bursts allowed.
 const VIDEO_RATE_PER_SEC = 15;
 const VIDEO_CAPACITY = 30;
-const FEATURES = ['screen'];
+// 'frameAck': the relay answers every game frame with {"type":"frame_ack"}, so a sharer only ever has
+// one frame on the way and can never clog its own upload (which is what makes voice break up).
+const FEATURES = ['screen', 'frameAck'];
 
 const CODE_RE = /^[A-Z0-9]{3,16}$/;
 const NAME_RE = /^[A-Za-z0-9_]{3,16}$/;
@@ -356,6 +358,7 @@ function handleBinary(client, data) {
     out.writeUInt16BE(client.id, 1);
     forward(client, out);
   } else if (kind === 0x03) {
+    sendJson(client.ws, { type: 'frame_ack' }); // always, even if the frame is dropped below
     if (!client.sharing) return;
     if (data.length < 6 || data.length - 5 > MAX_FRAME_BYTES) return;
     if (!takeVideoToken(client)) return;

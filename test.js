@@ -34,6 +34,7 @@ function connect(url, playerName, opts = {}) {
       if (msg.type === 'viewers') c.viewers = msg.names;
       if (msg.type === 'watch_denied') c.denied = (c.denied || 0) + 1;
       if (msg.type === 'whitelist_denied') c.wlDenied = (c.wlDenied || 0) + 1;
+      if (msg.type === 'frame_ack') c.acks = (c.acks || 0) + 1;
       if (msg.type === 'error') { c.errors.push(msg.code); resolve(c); }
     });
     ws.on('error', reject);
@@ -126,7 +127,7 @@ function frame(seq, size) {
   assert.strictEqual(sh.wlDenied, 1); ok('non-admin cannot edit the whitelist');
 
   // ---- game view sharing
-  assert.deepStrictEqual(sh.features, ['screen']); ok('welcome advertises screen feature');
+  assert.deepStrictEqual(sh.features, ['screen', 'frameAck']); ok('welcome advertises screen + frame acks');
   sh.ws.send(frame(1, 1000));
   await sleep(100);
   assert.strictEqual(vw.video.length + by.video.length, 0); ok('frames dropped while not sharing');
@@ -146,6 +147,7 @@ function frame(seq, size) {
   assert.strictEqual(vw.video.length, 1);
   assert.strictEqual(vw.video[0].jpeg.length, 60 * 1024); ok('viewer receives a 60 KB frame');
   assert.strictEqual(by.video.length + admin.video.length, 0); ok('non-viewers receive no frames');
+  assert.strictEqual(sh.acks, 2); ok('every frame is acknowledged to the sharer (even dropped ones)');
   sh.ws.send(audio(1, [1]));
   await sleep(100);
   assert.strictEqual(vw.audio.length, 1);
