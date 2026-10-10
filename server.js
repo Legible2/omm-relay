@@ -44,7 +44,7 @@ const PROTOCOL_VERSION = 1;
 // Raise it (or set MIN_CLIENT_BUILD on Render) to force everyone onto a newer jar.
 const REQUIRED_CLIENT = 'atdeadlock';
 const ALLOWED_ROOMS = new Set(['ATDEADLOCK']);
-const MIN_CLIENT_BUILD = parseInt(process.env.MIN_CLIENT_BUILD || '2', 10);
+const MIN_CLIENT_BUILD = parseInt(process.env.MIN_CLIENT_BUILD || '3', 10);
 const PORT = parseInt(process.env.PORT || '8080', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const MAX_ROOM_SIZE = parseInt(process.env.MAX_ROOM_SIZE || '250', 10);

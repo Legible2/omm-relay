@@ -18,7 +18,7 @@ function connect(url, playerName, opts = {}) {
     ws.on('open', () => {
       const hello = { type: 'hello', v: 1, partyCode: room, playerName, password: '' };
       if (opts.client !== null) hello.client = opts.client ?? 'atdeadlock';
-      if (opts.build !== null) hello.clientBuild = opts.build ?? 2;
+      if (opts.build !== null) hello.clientBuild = opts.build ?? 3;
       ws.send(JSON.stringify(hello));
     });
     ws.on('message', (data, isBinary) => {
@@ -69,9 +69,9 @@ function frame(seq, size) {
   assert.deepStrictEqual(other.errors, ['WRONG_CLIENT']); ok('other mods are refused');
   const old = await connect(url, 'Olly', { build: null });
   assert.deepStrictEqual(old.errors, ['OUTDATED']); ok('old atdeadlock (no build number) is refused');
-  const old1 = await connect(url, 'Olly', { build: 1 });
-  assert.deepStrictEqual(old1.errors, ['OUTDATED']); ok('atdeadlock build 1 is refused');
-  const newer = await connect(url, 'Nova', { build: 3 });
+  const old1 = await connect(url, 'Olly', { build: 2 });
+  assert.deepStrictEqual(old1.errors, ['OUTDATED']); ok('atdeadlock 1.1.0-1.2.0 (build 2) is refused');
+  const newer = await connect(url, 'Nova', { build: 4 });
   assert.strictEqual(newer.errors.length, 0); ok('newer builds are accepted');
   newer.ws.close();
   for (const c of [zydel, party, other, old, old1]) c.ws.close();
